@@ -1,10 +1,10 @@
 {
-    "PREFIX": "+",
-    "TOKEN": "NzQwNTkzMjQzMzUxMjg1ODYw.XyrRNA.Ehm7a07CTaEVx1VgN9o-3mCiYlo",
-    "KSOFT_API_TOKEN": "",
+    "PREFIX": "", //Bot's Prefix
+    "TOKEN": "", //https://discord.com/developers/applications/
+    "KSOFT_API_TOKEN": "", //https://api.ksoft.si/
     "ERELA_OPTIONS": {
         "host": "localhost",
         "port": 7000,
-        "password": "hope"
+        "password": "password"
     }
 }
