@@ -3,7 +3,7 @@ server:
   address: 0.0.0.0
 lavalink:
   server:
-    password: "hope"
+    password: "password"
     sources:
       youtube: true
       bandcamp: true
