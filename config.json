@@ -1,7 +1,7 @@
 {
-    "PREFIX": "", //Bot's Prefix
-    "TOKEN": "", //https://discord.com/developers/applications/
-    "KSOFT_API_TOKEN": "", //https://api.ksoft.si/
+    "PREFIX": "",
+    "TOKEN": "",
+    "KSOFT_API_TOKEN": "",
     "ERELA_OPTIONS": {
         "host": "localhost",
         "port": 7000,
