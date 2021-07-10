@@ -1,0 +1,38 @@
+server:
+  port: 7000
+  address: 0.0.0.0
+lavalink:
+  server:
+    password: "hope"
+    sources:
+      youtube: true
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      mixer: true
+      http: true
+      local: false
+    bufferDurationMs: 400
+    youtubePlaylistLoadLimit: 100
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+
+logging:
+  file:
+    max-history: 30
+    max-size: 
+  path: 
+
+  level:
+    root: INFO
+    lavalink: INFO

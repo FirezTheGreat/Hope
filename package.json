@@ -1,0 +1,31 @@
+{
+  "name": "hope_bot",
+  "version": "2.8.2",
+  "description": "Official HOPE BOT",
+  "main": "index.js",
+  "dependencies": {
+    "@discordjs/collection": "^0.1.6",
+    "canvas": "^2.6.1",
+    "discord.js": "^12.4.1",
+    "erela.js": "^2.2.0",
+    "ksoft.js": "^3.1.4",
+    "mongoose": "^5.10.13",
+    "spotify-url-info": "^1.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "lavalink": "java -jar Lavalink.jar"
+  },
+  "author": "Firez",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karantaley/hopebot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/karantaley/hopebot/issues"
+  },
+  "homepage": "https://github.com/karantaley/hopebot#readme"
+}
