@@ -1,7 +1,7 @@
 {
-  "name": "hope_bot",
+  "name": "hope",
   "version": "2.8.2",
-  "description": "Official HOPE BOT",
+  "description": "Hope",
   "main": "index.js",
   "dependencies": {
     "@discordjs/collection": "^0.1.6",
@@ -22,10 +22,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/karantaley/hopebot.git"
+    "url": "git+https://github.com/FirezTheGreat/Hope.git"
   },
   "bugs": {
-    "url": "https://github.com/karantaley/hopebot/issues"
+    "url": "https://github.com/FirezTheGreat/Hope/issues"
   },
-  "homepage": "https://github.com/karantaley/hopebot#readme"
+  "homepage": "https://github.com/FirezTheGreat/Hope#readme"
 }
