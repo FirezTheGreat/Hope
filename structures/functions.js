@@ -1,4 +1,30 @@
 module.exports = {
+    getTimeFromDate(timestamp) {
+        let date = new Date(timestamp * 1000);
+        let hours = date.getHours();
+        let minutes = date.getMinutes();
+        let seconds = date.getSeconds();
+        return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
+
+        function pad(num) {
+            return ("0" + num).slice(-2);
+        };
+    },
+    lockedAt() {
+        const date = new Date();
+        const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+        const newDate = new Date(utc + (3600000 * + 5.5));
+        const ist = newDate.toLocaleString("en-US");
+        return ist.replace(/\//g, '-').split(', ').join(' ').toUpperCase();
+    },
+    getTimeFromSeconds(time) {
+        time = Number(time);
+        let hours = Math.floor(time / 3600);
+        let minutes = Math.floor(time % 3600 / 60);
+        let seconds = Math.floor(time % 3600 % 60);
+    
+        return `${hours}:${minutes}:${seconds}`;
+    },
     formatTime(milliseconds, minimal = false) {
         if (!milliseconds || isNaN(milliseconds) || milliseconds <= 0) {
             throw new RangeError("Utils#formatTime(milliseconds: number) Milliseconds must be a number greater than 0");
@@ -67,7 +93,6 @@ module.exports = {
         }
         return time;
     },
-    
     parseTime(time) {
         const regex = /\d+\.*\d*\D+/g;
         time = time.split(/\s+/).join("");

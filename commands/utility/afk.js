@@ -1,33 +1,38 @@
 const Command = require('../../structures/Command');
-const AFK = require('../../structures/models/AFKList');
+const AFKList = require('../../structures/models/AFKList');
 
 module.exports = class AwayFromKeyboard extends Command {
     constructor(...args) {
         super(...args, {
-            name: 'setafk',
-            aliases: ['afk'],
-            category: 'general',
+            name: 'afk',
+            category: 'utility',
             description: 'Sets User As AFK',
             usage: '[reason] (optional)',
-            accessableby: 'everyone'
+            accessableby: 'Everyone',
+            slashCommand: true,
+            commandOptions: [
+                { name: 'reason', type: 'STRING', description: 'Reason for AFK', required: false }
+            ]
         });
     };
-    async run(message, args) {
+    async interactionRun(interaction) {
         try {
-            const afk = await AFK.findOne({
-                ID: message.author.id
-            });
-            if (!afk) {
-                AFK.create({
-                    ID: message.author.id,
-                    name: message.author.username,
-                    reason: args.join(' ') || 'afk'
+            const reason = interaction.options.getString('reason') || null;
+            const AFK = await AFKList.findOne({ ID: interaction.user.id });
+
+            if (!AFK) {
+                AFKList.create({
+                    ID: interaction.user.id,
+                    name: interaction.user.username,
+                    reason: reason || 'AFK'
                 });
-                return message.channel.send(`**I Have Set Your AFK\nReason - __${args.join(' ') || 'afk'}__!**`);
+                return interaction.reply(`**I Have Set Your AFK\nReason - __${reason || 'AFK'}__!**`);
+            } else {
+                return interaction.reply(`**Your AFK Is Already Set**`);
             };
         } catch (error) {
             console.error(error);
-            return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+            return interaction.reply(`An Error Occurred: \`${error.message}\`!`);
         };
     };
 };

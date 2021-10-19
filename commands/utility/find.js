@@ -5,558 +5,629 @@ module.exports = class Find extends Command {
     constructor(...args) {
         super(...args, {
             name: 'find',
-            aliases: [],
-            category: 'general',
+            category: 'utility',
             description: 'Adds You To Team',
-            usage: '[rank (+r, -r) | amongus (+au, -au) | battleprime (+bp, -bp) | valorant (+v, -v)]',
-            accessableby: 'everyone'
+            usage: '[cops | amongus | bgmi | valorant]',
+            accessableby: 'Everyone',
+            slashCommand: true,
+            commandOptions: [
+                { name: 'cops', type: 'SUB_COMMAND', description: 'Party to Join or Leave' },
+                { name: 'amongus', type: 'SUB_COMMAND', description: 'Party to Join or Leave' },
+                { name: 'bgmi', type: 'SUB_COMMAND', description: 'Party to Join or Leave' },
+                { name: 'valorant', type: 'SUB_COMMAND', description: 'Party to Join or Leave' }
+            ],
         });
     };
-    async run(message, args) {
-        if (!args[0]) return message.channel.send(`**Please Enter Game Name To Find Party!**`);
-        const channel = message.guild.channels.cache.get('751660887600922704');
-        if (!channel) return message.channel.send(`**Find Channel Not Found!**`);
-        if (message.channel.id !== channel.id) return message.channel.send(`**To Find A Party For Any Game, Use <#${channel.id}>**`);
+    async interactionRun(interaction) {
+        const game = interaction.options._subcommand;
+
+        const channel = interaction.guild.channels.cache.get('877051054221570098');
+        if (!channel) return interaction.reply(`**Find Channel Not Found!**`);
+        if (interaction.channel.id !== channel.id) return interaction.reply(`**To Find A Party For Any Game, Use ${channel}**`);
 
         try {
-            if (args[0].toLowerCase() === 'rank') {
-                const games = this.bot.games.get('rank');
+            await interaction.deferReply();
+
+            if (game === 'cops') {
+                const games = this.bot.games.get('cops');
                 if (games) {
-                    message.channel.send(`**Rank Searching Is Currently Going On!**`);
-                } else {
-                    this.bot.games.set('rank', {
-                        name: 'rank',
-                        data: {
-                            players: new Collection(),
-                            channel: message.channel.id
-                        }
-                    });
-                };
-                const { players } = this.bot.games.get('rank').data;
-                players.set(message.author.id, {
-                    playing: true,
-                    hasStarted: true
-                });
+                    const { players } = games.data;
 
-                const startEmbed = new MessageEmbed()
-                    .setTitle('5v5 Rank')
-                    .setColor('GREEN')
-                    .setDescription(`**${message.member.displayName} Wants To Rank!**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.size}/${5}\``)
-                    .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                    .setTimestamp();
-                message.channel.send({ embed: startEmbed });
+                    if (players.has(interaction.user.id)) {
+                        if (players.get(interaction.user.id).playing) {
+                            players.set(interaction.user.id, { playing: false });
 
-                const filter = (user) => {
-                    if (user.author.bot) return false;
-                    if (user.content.toLowerCase() === '+r' || user.content.toLowerCase() === '-r') return true;
-                };
+                            if (players.filter(player => player.playing).size <= 0) {
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('cops');
 
-                const collector = message.channel.createMessageCollector(filter, {
-                    time: 600000
-                });
+                                const stopEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('5v5 Rank')
+                                    .setColor('GREEN')
+                                    .setDescription(`**Rank Cancelled All Players Left!**`)
+                                    .setFooter('Rank Matching Stopped')
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [stopEmbed] });
+                            } else {
+                                const leftEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                                    .setTitle('5v5 Rank')
+                                    .setColor('GREEN')
+                                    .setDescription(`**${interaction.member.displayName} Has Left The Rank Party**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                                    .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [leftEmbed] });
+                            };
+                        } else {
+                            players.set(interaction.user.id, { playing: true });
 
-                collector.on('collect', async (collected) => {
-                    const member = message.guild.members.cache.get(collected.author.id);
-
-                    if (players.has(member.user.id) && collected.content.toLowerCase() === '-r') {
-                        players.delete(member.user.id);
-                        if (players.size !== 0) {
-                            const leftEmbed = new MessageEmbed()
-                                .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            const startEmbed = new MessageEmbed()
                                 .setTitle('5v5 Rank')
                                 .setColor('GREEN')
-                                .setDescription(`**${member.displayName} Has Left The Rank Party**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.size}/${5}\``)
-                                .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                                .setDescription(`**${interaction.member.displayName} Rejoins Rank Party!**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                                .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                                 .setTimestamp();
-                            return message.channel.send({ embed: leftEmbed });
-                        } else {
-                            this.bot.games.delete('rank');
-                            return collector.stop('stopped');
+                            interaction.editReply({ embeds: [startEmbed] });
+
+                            if (players.filter(player => player.playing).size === 5) {
+                                let lineup = '';
+                                for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                                const fullEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('5v5 Rank')
+                                    .setColor('GREEN')
+                                    .addField('Lineup', lineup)
+                                    .setFooter('Rank Matching Completed')
+                                    .setTimestamp();
+
+                                for (const id of players.filter(player => player.playing).keys()) {
+                                    let user = this.bot.users.cache.get(id);
+                                    players.delete(id);
+                                    try {
+                                        await user.send({ embeds: [fullEmbed] });
+                                    } catch (error) {
+                                        interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                    };
+                                };
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('cops');
+
+                                interaction.channel.send({ content: `**Rank Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                            };
+                            return;
                         };
-                    } else if (!players.has(member.user.id) && collected.content.toLowerCase() === '-r') {
-                        return message.channel.send(`**You Cannot Leave Party As You Haven't Joined It Yet!**`);
-                    } else if (players.has(member.user.id) && collected.content.toLowerCase() === '+r') {
-                        return message.channel.send(`**You Have Already Joined The Party!**`);
                     } else {
-                        players.set(member.user.id, {
-                            playing: true,
-                            hasStarted: false
-                        });
+                        players.set(interaction.user.id, { playing: true });
 
                         const joinedEmbed = new MessageEmbed()
-                            .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
                             .setTitle('5v5 Rank')
                             .setColor('GREEN')
-                            .setDescription(`**${member.displayName} Has Joined The Rank Party**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.size}/${5}\``)
-                            .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                            .setDescription(`**${interaction.member.displayName} Has Joined The Rank Party**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.size}/${5}\``)
+                            .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                             .setTimestamp();
-                        message.channel.send({ embed: joinedEmbed });
-                    };
+                        interaction.editReply({ embeds: [joinedEmbed] });
 
-                    if (players.size === 5) collector.stop('full');
-                });
+                        if (players.filter(player => player.playing).size === 5) {
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
 
-                collector.on('end', async (collected, reason) => {
-                    let lineup = ``;
-                    for (const item of players.keys()) lineup += `> <@${item}>\n`
+                            const fullEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('5v5 Rank')
+                                .setColor('GREEN')
+                                .addField('Lineup', lineup)
+                                .setFooter('Rank Matching Completed')
+                                .setTimestamp();
 
-                    if (reason === 'full') {
-                        const fullEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('5v5 Rank')
-                            .setColor('GREEN')
-                            .addField('Lineup', lineup)
-                            .setFooter('Rank Matching Completed')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: fullEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                            for (const id of players.filter(player => player.playing).keys()) {
+                                let user = this.bot.users.cache.get(id);
+                                players.delete(id);
+                                try {
+                                    await user.send({ embeds: [fullEmbed] });
+                                } catch (error) {
+                                    interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                };
                             };
-                        };
-                        this.bot.games.delete('rank');
-                        return message.channel.send(`**Rank Players Found! Lineup Has Been DMed To All Players!**`, { embed: fullEmbed });
-                    } else if (reason === 'stopped') {
-                        const stopEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('5v5 Rank')
-                            .setColor('GREEN')
-                            .setDescription(`**Rank Cancelled No Players Found!**`)
-                            .setFooter('Rank Matching Stopped')
-                            .setTimestamp();
-                        return message.channel.send({ embed: stopEmbed })
-                    } else {
-                        this.bot.games.delete('rank');
-                        const failedEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('5v5 Rank')
-                            .setColor('GREEN')
-                            .setDescription('**Failed To Find Full Party, Current Lineup Is**')
-                            .addField('Lineup', lineup)
-                            .setFooter('Full Party Unavailable')
-                            .setTimestamp();
+                            clearTimeout(games.timeout);
+                            this.bot.games.delete('cops');
 
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: failedEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
+                            interaction.channel.send({ content: `**Rank Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
                         };
-                        return message.channel.send(`**Rank Searching Completed! Lineup Has Been DMed To All Players Currently In Party!**`, { embed: failedEmbed });
+                        return;
                     };
-                });
-            } else if (args[0].toLowerCase() === 'amongus') {
+                } else {
+                    this.bot.games.set('cops', {
+                        name: 'cops',
+                        data: {
+                            players: new Collection(),
+                            channel: interaction.channel.id
+                        },
+                        timeout: setTimeout(() => {
+                            const { players } = this.bot.games.get('cops').data;
+
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                            const failedEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('5v5 Rank')
+                                .setColor('GREEN')
+                                .setDescription('**Failed To Find Full Party, Current Lineup Is**')
+                                .addField('Lineup', lineup)
+                                .setFooter('Full Party Unavailable')
+                                .setTimestamp();
+
+                            this.bot.channels.cache.get(this.bot.games.get('cops').data.channel).send({ embeds: [failedEmbed] });
+                            this.bot.games.delete('cops');
+                        }, 600000)
+                    });
+
+                    const { players } = this.bot.games.get('cops').data;
+                    players.set(interaction.user.id, { playing: true });
+
+                    const joinedEmbed = new MessageEmbed()
+                        .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                        .setTitle('5v5 Rank')
+                        .setColor('GREEN')
+                        .setDescription(`**${interaction.member.displayName} Has Joined The Rank Party**\n\n__Current No. Of People Who Want To Rank!__ - \`${players.size}/${5}\``)
+                        .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                        .setTimestamp();
+                    return interaction.editReply({ embeds: [joinedEmbed] });
+                };
+            } else if (game === 'amongus') {
                 const games = this.bot.games.get('amongus');
                 if (games) {
-                    message.channel.send(`**Currently Searching Players For Among Us!**`);
+                    const { players } = games.data;
+
+                    if (players.has(interaction.user.id)) {
+                        if (players.get(interaction.user.id).playing) {
+                            players.set(interaction.user.id, { playing: false });
+
+                            if (players.filter(player => player.playing).size <= 0) {
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('amongus');
+
+                                const stopEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('Among Us')
+                                    .setColor('GREEN')
+                                    .setDescription(`**Searching Cancelled All Players Left!**`)
+                                    .setFooter('Among Us Party Searching Stopped')
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [stopEmbed] });
+                            } else {
+                                const leftEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                                    .setTitle('Among Us')
+                                    .setColor('GREEN')
+                                    .setDescription(`**${interaction.member.displayName} Has Left The Among Us Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${10}\``)
+                                    .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [leftEmbed] });
+                            };
+                        } else {
+                            players.set(interaction.user.id, { playing: true });
+
+                            const startEmbed = new MessageEmbed()
+                                .setTitle('Among Us')
+                                .setColor('GREEN')
+                                .setDescription(`**${interaction.member.displayName} Rejoins Among Us Party!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${10}\``)
+                                .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTimestamp();
+                            interaction.editReply({ embeds: [startEmbed] });
+
+                            if (players.filter(player => player.playing).size === 10) {
+                                let lineup = '';
+                                for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                                const fullEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('Among Us')
+                                    .setColor('GREEN')
+                                    .addField('Lineup', lineup)
+                                    .setFooter('Party Searching Completed')
+                                    .setTimestamp();
+
+                                for (const id of players.filter(player => player.playing).keys()) {
+                                    let user = this.bot.users.cache.get(id);
+                                    players.delete(id);
+                                    try {
+                                        await user.send({ embeds: [fullEmbed] });
+                                    } catch (error) {
+                                        interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                    };
+                                };
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('amongus');
+
+                                interaction.channel.send({ content: `**Among Us Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                            };
+                            return;
+                        };
+                    } else {
+                        players.set(interaction.user.id, { playing: true });
+
+                        const joinedEmbed = new MessageEmbed()
+                            .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                            .setTitle('Among Us')
+                            .setColor('GREEN')
+                            .setDescription(`**${interaction.member.displayName} Has Joined The Among Us Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${10}\``)
+                            .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                            .setTimestamp();
+                        interaction.editReply({ embeds: [joinedEmbed] });
+
+                        if (players.filter(player => player.playing).size === 10) {
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                            const fullEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('Among Us')
+                                .setColor('GREEN')
+                                .addField('Lineup', lineup)
+                                .setFooter('Party Searching Completed')
+                                .setTimestamp();
+
+                            for (const id of players.filter(player => player.playing).keys()) {
+                                let user = this.bot.users.cache.get(id);
+                                players.delete(id);
+                                try {
+                                    await user.send({ embeds: [fullEmbed] });
+                                } catch (error) {
+                                    interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                };
+                            };
+                            clearTimeout(games.timeout);
+                            this.bot.games.delete('amongus');
+
+                            interaction.channel.send({ content: `**Among Us Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                        };
+                        return;
+                    };
                 } else {
                     this.bot.games.set('amongus', {
                         name: 'amongus',
                         data: {
                             players: new Collection(),
-                            channel: message.channel.id
-                        }
-                    });
-                };
-                const { players } = this.bot.games.get('amongus').data;
-                players.set(message.author.id, {
-                    playing: true,
-                    hasStarted: true
-                });
+                            channel: interaction.channel.id
+                        },
+                        timeout: setTimeout(() => {
+                            const { players } = this.bot.games.get('amongus').data;
 
-                const startEmbed = new MessageEmbed()
-                    .setTitle('Among Us')
-                    .setColor('GREEN')
-                    .setDescription(`**${message.member.displayName} Wants To Play Among Us!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${10}\``)
-                    .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                    .setTimestamp();
-                message.channel.send({ embed: startEmbed });
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
 
-                const filter = (user) => {
-                    if (user.author.this.bot) return false;
-                    if (user.content.toLowerCase() === '+au' || user.content.toLowerCase() === '-au') return true;
-                };
-
-                const collector = message.channel.createMessageCollector(filter, {
-                    time: 600000
-                });
-
-                collector.on('collect', async (collected) => {
-                    const member = message.guild.members.cache.get(collected.author.id);
-
-                    if (players.has(member.user.id) && collected.content.toLowerCase() === '-au') {
-                        players.delete(member.user.id);
-                        if (players.size !== 0) {
-                            const leftEmbed = new MessageEmbed()
-                                .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            const failedEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                                 .setTitle('Among Us')
                                 .setColor('GREEN')
-                                .setDescription(`**${member.displayName} Has Left The Among Us Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${10}\``)
-                                .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                                .setDescription('**Failed To Find Full Party, Current Lineup Is**')
+                                .addField('Lineup', lineup)
+                                .setFooter('Full Party Unavailable')
                                 .setTimestamp();
-                            return message.channel.send({ embed: leftEmbed });
-                        } else {
+
+                            this.bot.channels.cache.get(this.bot.games.get('amongus').data.channel).send({ embeds: [failedEmbed] });
                             this.bot.games.delete('amongus');
-                            return collector.stop('stopped');
-                        };
-                    } else if (!players.has(member.user.id) && collected.content.toLowerCase() === '-au') {
-                        return message.channel.send(`**You Cannot Leave Party As You Haven't Joined It Yet!**`);
-                    } else if (players.has(member.user.id) && collected.content.toLowerCase() === '+au') {
-                        return message.channel.send(`**You Have Already Joined The Party!**`);
-                    } else {
-                        players.set(member.user.id, {
-                            playing: true,
-                            hasStarted: false
-                        });
-
-                        const joinedEmbed = new MessageEmbed()
-                            .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
-                            .setTitle('Among Us')
-                            .setColor('GREEN')
-                            .setDescription(`**${member.displayName} Has Joined The Among Us Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${10}\``)
-                            .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTimestamp();
-                        message.channel.send({ embed: joinedEmbed });
-                    };
-
-                    if (players.size === 10) collector.stop('full');
-                });
-
-                collector.on('end', async (collected, reason) => {
-                    let lineup = ``;
-                    for (const item of players.keys()) lineup += `> <@${item}>\n`
-
-                    if (reason === 'full') {
-                        const fullEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Among Us')
-                            .setColor('GREEN')
-                            .addField('Lineup', lineup)
-                            .setFooter('Party Searching Completed')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: fullEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
-                        };
-                        this.bot.games.delete('amongus');
-                        return message.channel.send(`**Among Us Players Found! Lineup Has Been DMed To All Players!**`, { embed: fullEmbed });
-                    } else if (reason === 'stopped') {
-                        const stopEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Among Us')
-                            .setColor('GREEN')
-                            .setDescription(`**Searching Cancelled No Players Found!**`)
-                            .setFooter('Among Us Party Searching Stopped')
-                            .setTimestamp();
-                        return message.channel.send({ embed: stopEmbed })
-                    } else {
-                        this.bot.games.delete('amongus');
-                        const failedEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Among Us')
-                            .setColor('GREEN')
-                            .setDescription('**Failed To Find Full Party, Current Lineup Is**')
-                            .addField('Lineup', lineup)
-                            .setFooter('Full Party Unavailable')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: failedEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
-                        };
-                        return message.channel.send(`**Party Searching Completed! Lineup Has Been DMed To All Players Currently In Party!**`, { embed: failedEmbed });
-                    };
-                });
-            } else if (args[0].toLowerCase() === 'battleprime') {
-                const games = this.bot.games.get('battleprime');
-                if (games) {
-                    message.channel.send(`**Currently Searching Players For Battle Prime!**`);
-                } else {
-                    this.bot.games.set('battleprime', {
-                        name: 'battleprime',
-                        data: {
-                            players: new Collection(),
-                            channel: message.channel.id
-                        }
+                        }, 600000)
                     });
+
+                    const { players } = this.bot.games.get('amongus').data;
+                    players.set(interaction.user.id, { playing: true });
+
+                    const joinedEmbed = new MessageEmbed()
+                        .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                        .setTitle('Among Us')
+                        .setColor('GREEN')
+                        .setDescription(`**${interaction.member.displayName} Has Joined The Among Us Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${10}\``)
+                        .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                        .setTimestamp();
+                    return interaction.editReply({ embeds: [joinedEmbed] });
                 };
-                const { players } = this.bot.games.get('battleprime').data;
-                players.set(message.author.id, {
-                    playing: true,
-                    hasStarted: true
-                });
+            } else if (game === 'bgmi') {
+                const games = this.bot.games.get('bgmi');
+                if (games) {
+                    const { players } = games.data;
 
-                const startEmbed = new MessageEmbed()
-                    .setTitle('Battle Prime')
-                    .setColor('GREEN')
-                    .setDescription(`**${message.member.displayName} Wants To Play Battle Prime!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${3}\``)
-                    .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                    .setTimestamp();
-                message.channel.send({ embed: startEmbed });
+                    if (players.has(interaction.user.id)) {
+                        if (players.get(interaction.user.id).playing) {
+                            players.set(interaction.user.id, { playing: false });
 
-                const filter = (user) => {
-                    if (user.author.bot) return false;
-                    if (user.content.toLowerCase() === '+bp' || user.content.toLowerCase() === '-bp') return true;
-                };
+                            if (players.filter(player => player.playing).size <= 0) {
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('bgmi');
 
-                const collector = message.channel.createMessageCollector(filter, {
-                    time: 600000
-                });
+                                const stopEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('Battle Prime')
+                                    .setColor('GREEN')
+                                    .setDescription(`**Searching Cancelled All Players Left!**`)
+                                    .setFooter('Battle Prime Party Searching Stopped')
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [stopEmbed] });
+                            } else {
+                                const leftEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                                    .setTitle('Battle Prime')
+                                    .setColor('GREEN')
+                                    .setDescription(`**${interaction.member.displayName} Has Left The Battle Prime Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${4}\``)
+                                    .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [leftEmbed] });
+                            };
+                        } else {
+                            players.set(interaction.user.id, { playing: true });
 
-                collector.on('collect', async (collected) => {
-                    const member = message.guild.members.cache.get(collected.author.id);
-
-                    if (players.has(member.user.id) && collected.content.toLowerCase() === '-bp') {
-                        players.delete(member.user.id);
-                        if (players.size !== 0) {
-                            const leftEmbed = new MessageEmbed()
-                                .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            const startEmbed = new MessageEmbed()
                                 .setTitle('Battle Prime')
                                 .setColor('GREEN')
-                                .setDescription(`**${member.displayName} Has Left The Battle Prime Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${3}\``)
-                                .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                                .setDescription(`**${interaction.member.displayName} Wants To Play Battle Prime!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${4}\``)
+                                .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                                 .setTimestamp();
-                            return message.channel.send({ embed: leftEmbed });
-                        } else {
-                            this.bot.games.delete('battleprime');
-                            return collector.stop('stopped');
+                            interaction.editReply({ embeds: [startEmbed] });
+
+                            if (players.filter(player => player.playing).size === 4) {
+                                let lineup = '';
+                                for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                                const fullEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('5v5 Rank')
+                                    .setColor('GREEN')
+                                    .addField('Lineup', lineup)
+                                    .setFooter('Rank Matching Completed')
+                                    .setTimestamp();
+
+                                for (const id of players.filter(player => player.playing).keys()) {
+                                    let user = this.bot.users.cache.get(id);
+                                    players.delete(id);
+                                    try {
+                                        await user.send({ embeds: [fullEmbed] });
+                                    } catch (error) {
+                                        interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                    };
+                                };
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('bgmi');
+
+                                interaction.channel.send({ content: `**BGMI Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                            };
+                            return;
                         };
-                    } else if (!players.has(member.user.id) && collected.content.toLowerCase() === '-bp') {
-                        return message.channel.send(`**You Cannot Leave Party As You Haven't Joined It Yet!**`);
-                    } else if (players.has(member.user.id) && collected.content.toLowerCase() === '+bp') {
-                        return message.channel.send(`**You Have Already Joined The Party!**`);
                     } else {
-                        players.set(member.user.id, {
-                            playing: true,
-                            hasStarted: false
-                        });
+                        players.set(interaction.user.id, { playing: true });
 
                         const joinedEmbed = new MessageEmbed()
-                            .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
                             .setTitle('Battle Prime')
                             .setColor('GREEN')
-                            .setDescription(`**${member.displayName} Has Joined The Battle Prime Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${3}\``)
-                            .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                            .setDescription(`**${interaction.member.displayName} Has Joined The Battle Prime Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${4}\``)
+                            .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                             .setTimestamp();
-                        message.channel.send({ embed: joinedEmbed });
-                    };
+                        interaction.editReply({ embeds: [joinedEmbed] });
 
-                    if (players.size === 3) collector.stop('full');
-                });
+                        if (players.filter(player => player.playing).size === 4) {
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
 
-                collector.on('end', async (collected, reason) => {
-                    let lineup = ``;
-                    for (const item of players.keys()) lineup += `> <@${item}>\n`
+                            const fullEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('5v5 Rank')
+                                .setColor('GREEN')
+                                .addField('Lineup', lineup)
+                                .setFooter('Rank Matching Completed')
+                                .setTimestamp();
 
-                    if (reason === 'full') {
-                        const fullEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Battle Prime')
-                            .setColor('GREEN')
-                            .addField('Lineup', lineup)
-                            .setFooter('Party Searching Completed')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: fullEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                            for (const id of players.filter(player => player.playing).keys()) {
+                                let user = this.bot.users.cache.get(id);
+                                players.delete(id);
+                                try {
+                                    await user.send({ embeds: [fullEmbed] });
+                                } catch (error) {
+                                    interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                };
                             };
-                        };
-                        this.bot.games.delete('battleprime');
-                        return message.channel.send(`**Among Us Players Found! Lineup Has Been DMed To All Players!**`, { embed: fullEmbed });
-                    } else if (reason === 'stopped') {
-                        const stopEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Battle Prime')
-                            .setColor('GREEN')
-                            .setDescription(`**Searching Cancelled No Players Found!**`)
-                            .setFooter('Battle Prime Party Searching Stopped')
-                            .setTimestamp();
-                        return message.channel.send({ embed: stopEmbed })
-                    } else {
-                        this.bot.games.delete('battleprime');
-                        const failedEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Battle Prime')
-                            .setColor('GREEN')
-                            .setDescription('**Failed To Find Full Party, Current Lineup Is**')
-                            .addField('Lineup', lineup)
-                            .setFooter('Full Party Unavailable')
-                            .setTimestamp();
+                            clearTimeout(games.timeout);
+                            this.bot.games.delete('bgmi');
 
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: failedEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
+                            interaction.channel.send({ content: `**BGMI Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
                         };
-                        return message.channel.send(`**Party Searching Completed! Lineup Has Been DMed To All Players Currently In Party!**`, { embed: failedEmbed });
+                        return;
                     };
-                });
-            } else if (args[0].toLowerCase() === 'valorant') {
+                } else {
+                    this.bot.games.set('bgmi', {
+                        name: 'bgmi',
+                        data: {
+                            players: new Collection(),
+                            channel: interaction.channel.id
+                        },
+                        timeout: setTimeout(() => {
+                            const { players } = this.bot.games.get('bgmi').data;
+
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                            const failedEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('5v5 Rank')
+                                .setColor('GREEN')
+                                .setDescription('**Failed To Find Full Party, Current Lineup Is**')
+                                .addField('Lineup', lineup)
+                                .setFooter('Full Party Unavailable')
+                                .setTimestamp();
+
+                            this.bot.channels.cache.get(this.bot.games.get('bgmi').data.channel).send({ embeds: [failedEmbed] });
+                            this.bot.games.delete('bgmi');
+                        }, 600000)
+                    });
+
+                    const { players } = this.bot.games.get('bgmi').data;
+                    players.set(interaction.user.id, { playing: true });
+
+                    const joinedEmbed = new MessageEmbed()
+                        .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                        .setTitle('Battle Prime')
+                        .setColor('GREEN')
+                        .setDescription(`**${interaction.member.displayName} Has Joined The Battle Prime Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${3}\``)
+                        .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                        .setTimestamp();
+                    return interaction.editReply({ embeds: [joinedEmbed] });
+                };
+            } else if (game === 'valorant') {
                 const games = this.bot.games.get('valorant');
                 if (games) {
-                    message.channel.send(`**Currently Searching Players For Valorant!**`);
+                    const { players } = games.data;
+
+                    if (players.has(interaction.user.id)) {
+                        if (players.get(interaction.user.id).playing) {
+                            players.set(interaction.user.id, { playing: false });
+
+                            if (players.filter(player => player.playing).size <= 0) {
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('amongus');
+
+                                const stopEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('Valorant')
+                                    .setColor('GREEN')
+                                    .setDescription(`**Searching Cancelled No Players Found!**`)
+                                    .setFooter('Valorant Party Searching Stopped')
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [stopEmbed] });
+                            } else {
+                                const leftEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                                    .setTitle('Valorant')
+                                    .setColor('GREEN')
+                                    .setDescription(`**${interaction.member.displayName} Has Left The Valorant Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                                    .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTimestamp();
+                                return interaction.editReply({ embeds: [leftEmbed] });
+                            };
+                        } else {
+                            players.set(interaction.user.id, { playing: true });
+
+                            const startEmbed = new MessageEmbed()
+                                .setTitle('Valorant')
+                                .setColor('GREEN')
+                                .setDescription(`**${interaction.member.displayName} Wants To Play Valorant!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                                .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTimestamp();
+                            interaction.editReply({ embeds: [startEmbed] });
+
+                            if (players.filter(player => player.playing).size === 5) {
+                                let lineup = '';
+                                for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                                const fullEmbed = new MessageEmbed()
+                                    .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                    .setTitle('Valorant')
+                                    .setColor('GREEN')
+                                    .addField('Lineup', lineup)
+                                    .setFooter('Party Searching Completed')
+                                    .setTimestamp();
+
+                                for (const id of players.filter(player => player.playing).keys()) {
+                                    let user = this.bot.users.cache.get(id);
+                                    players.delete(id);
+                                    try {
+                                        await user.send({ embeds: [fullEmbed] });
+                                    } catch (error) {
+                                        interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                    };
+                                };
+                                clearTimeout(games.timeout);
+                                this.bot.games.delete('valorant');
+
+                                interaction.channel.send({ content: `**Valorant Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                            };
+                            return;
+                        };
+                    } else {
+                        players.set(interaction.user.id, { playing: true });
+
+                        const joinedEmbed = new MessageEmbed()
+                            .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                            .setTitle('Valorant')
+                            .setColor('GREEN')
+                            .setDescription(`**${interaction.member.displayName} Has Joined The Valorant Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                            .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                            .setTimestamp();
+                        interaction.editReply({ embeds: [joinedEmbed] });
+
+                        if (players.filter(player => player.playing).size === 5) {
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
+
+                            const fullEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                                .setTitle('Valorant')
+                                .setColor('GREEN')
+                                .addField('Lineup', lineup)
+                                .setFooter('Party Searching Completed')
+                                .setTimestamp();
+
+                            for (const id of players.filter(player => player.playing).keys()) {
+                                let user = this.bot.users.cache.get(id);
+                                players.delete(id);
+                                try {
+                                    await user.send({ embeds: [fullEmbed] });
+                                } catch (error) {
+                                    interaction.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
+                                };
+                            };
+                            clearTimeout(games.timeout);
+                            this.bot.games.delete('valorant');
+
+                            interaction.channel.send({ content: `**Valorant Players Found! Lineup Has Been DMed To All Players!**`, embeds: [fullEmbed] });
+                        };
+                        return;
+                    };
                 } else {
                     this.bot.games.set('valorant', {
                         name: 'valorant',
                         data: {
                             players: new Collection(),
-                            channel: message.channel.id
-                        }
-                    });
-                };
-                const { players } = this.bot.games.get('valorant').data;
-                players.set(message.author.id, {
-                    playing: true,
-                    hasStarted: true
-                });
+                            channel: interaction.channel.id
+                        },
+                        timeout: setTimeout(() => {
+                            const { players } = this.bot.games.get('valorant').data;
 
-                const startEmbed = new MessageEmbed()
-                    .setTitle('Valorant')
-                    .setColor('GREEN')
-                    .setDescription(`**${message.member.displayName} Wants To Play Valorant!**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${5}\``)
-                    .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                    .setTimestamp();
-                message.channel.send({ embed: startEmbed });
+                            let lineup = '';
+                            for (const item of players.filter(player => player.playing).keys()) lineup += `> <@${item}>\n`;
 
-                const filter = (user) => {
-                    if (user.author.bot) return false;
-                    if (user.content.toLowerCase() === '+v' || user.content.toLowerCase() === '-v') return true;
-                };
-
-                const collector = message.channel.createMessageCollector(filter, {
-                    time: 600000
-                });
-
-                collector.on('collect', async (collected) => {
-                    const member = message.guild.members.cache.get(collected.author.id);
-
-                    if (players.has(member.user.id) && collected.content.toLowerCase() === '-v') {
-                        players.delete(member.user.id);
-                        if (players.size !== 0) {
-                            const leftEmbed = new MessageEmbed()
-                                .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
+                            const failedEmbed = new MessageEmbed()
+                                .setAuthor(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
                                 .setTitle('Valorant')
                                 .setColor('GREEN')
-                                .setDescription(`**${member.displayName} Has Left The Valorant Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${5}\``)
-                                .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
+                                .setDescription('**Failed To Find Full Party, Current Lineup Is**')
+                                .addField('Lineup', lineup)
+                                .setFooter('Full Party Unavailable')
                                 .setTimestamp();
-                            return message.channel.send({ embed: leftEmbed });
-                        } else {
+
+                            this.bot.channels.cache.get(this.bot.games.get('valorant').data.channel).send({ embeds: [failedEmbed] });
                             this.bot.games.delete('valorant');
-                            return collector.stop('stopped');
-                        };
-                    } else if (!players.has(member.user.id) && collected.content.toLowerCase() === '-v') {
-                        return message.channel.send(`**You Cannot Leave Party As You Haven't Joined It Yet!**`);
-                    } else if (players.has(member.user.id) && collected.content.toLowerCase() === '+v') {
-                        return message.channel.send(`**You Have Already Joined The Party!**`);
-                    } else {
-                        players.set(member.user.id, {
-                            playing: true,
-                            hasStarted: false
-                        });
+                        }, 600000)
+                    });
 
-                        const joinedEmbed = new MessageEmbed()
-                            .setAuthor(member.displayName, member.user.displayAvatarURL({ dynamic: true }))
-                            .setTitle('Valorant')
-                            .setColor('GREEN')
-                            .setDescription(`**${member.displayName} Has Joined The Valorant Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.size}/${5}\``)
-                            .setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTimestamp();
-                        message.channel.send({ embed: joinedEmbed });
-                    };
+                    const { players } = this.bot.games.get('valorant').data;
+                    players.set(interaction.user.id, { playing: true });
 
-                    if (players.size === 5) collector.stop('full');
-                });
-
-                collector.on('end', async (collected, reason) => {
-                    let lineup = ``;
-                    for (const item of players.keys()) lineup += `> <@${item}>\n`
-
-                    if (reason === 'full') {
-                        const fullEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Valorant')
-                            .setColor('GREEN')
-                            .addField('Lineup', lineup)
-                            .setFooter('Party Searching Completed')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: fullEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
-                        };
-                        this.bot.games.delete('valorant');
-                        return message.channel.send(`**Among Us Players Found! Lineup Has Been DMed To All Players!**`, { embed: fullEmbed });
-                    } else if (reason === 'stopped') {
-                        const stopEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Valorant')
-                            .setColor('GREEN')
-                            .setDescription(`**Searching Cancelled No Players Found!**`)
-                            .setFooter('Valorant Party Searching Stopped')
-                            .setTimestamp();
-                        return message.channel.send({ embed: stopEmbed })
-                    } else {
-                        this.bot.games.delete('valorant');
-                        const failedEmbed = new MessageEmbed()
-                            .setAuthor(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                            .setTitle('Valorant')
-                            .setColor('GREEN')
-                            .setDescription('**Failed To Find Full Party, Current Lineup Is**')
-                            .addField('Lineup', lineup)
-                            .setFooter('Full Party Unavailable')
-                            .setTimestamp();
-
-                        for (const id of players.keys()) {
-                            let user = this.bot.users.cache.get(id);
-                            players.delete(id);
-                            try {
-                                await user.send({ embed: failedEmbed });
-                            } catch (error) {
-                                message.channel.send(`**Lineup Was Not Send To ${user} As His/Her DMs Are Blocked!**`);
-                            };
-                        };
-                        return message.channel.send(`**Party Searching Completed! Lineup Has Been DMed To All Players Currently In Party!**`, { embed: failedEmbed });
-                    };
-                });
-            } else {
-                return message.channel.send(`**Please Enter The Right Format!\n\n+find [rank | battleprime | amongus | valorant]**`);
+                    const joinedEmbed = new MessageEmbed()
+                        .setAuthor(interaction.member.displayName, interaction.user.displayAvatarURL({ dynamic: true }))
+                        .setTitle('Valorant')
+                        .setColor('GREEN')
+                        .setDescription(`**${interaction.member.displayName} Has Joined The Valorant Party**\n\n__Current No. Of People Who Want To Play!__ - \`${players.filter(player => player.playing).size}/${5}\``)
+                        .setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                        .setTimestamp();
+                    return interaction.editReply({ embeds: [joinedEmbed] });
+                };
             };
         } catch (error) {
             console.error(error);
-            return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+            return interaction.editReply(`An Error Occurred: \`${error.message}\`!`);
         };
-    }
+    };
 };

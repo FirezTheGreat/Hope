@@ -3,17 +3,14 @@ const { MessageAttachment } = require('discord.js');
 const { createCanvas, loadImage } = require('canvas');
 const path = require('path');
 
-module.exports = class GuildMemberAdd extends Event {
+module.exports = class guildMemberAdd extends Event {
     constructor(...args) {
         super(...args);
     };
 
     async run(member) {
         try {
-            const role = member.guild.roles.cache.find(r => r.name.toLowerCase() === 'community');
-            if (!role) return;
-
-            const channel = member.guild.channels.cache.get('419852380193161216');
+            const channel = member.guild.channels.cache.get('724509069112639620');
             if (!channel) return;
 
             const canvas = createCanvas(700, 250);
@@ -45,22 +42,7 @@ module.exports = class GuildMemberAdd extends Event {
             ctx.drawImage(avatar, 25, 25, 200, 200);
 
             const attachment = new MessageAttachment(canvas.toBuffer(), 'welcome.png');
-            channel.send(`**Hey ${member}, I hope you have a nice day :hugging:!!**`, { files: [attachment], name: 'welcome.png' });
-            await member.roles.add(role.id);
-
-            try {
-                await member.send(`
-:small_blue_diamond: Hi ${member}, welcome to the HOPE UPRISING Discord server. We are happy to see you! :smiley: 
-
-:small_orange_diamond: Please make sure you read information in <#422473080770920448> to familiarize yourself with our Discord server.
-
-:small_orange_diamond: If you have any problems or queries don't hesitate to *DM* the **Managers** or the **Leader**  
-
-:small_orange_diamond: **I hope you have a great day, Enjoy!**`);
-            } catch (error) {
-                return;
-            };
-            return;
+            channel.send(`**Hey ${member}, I hope you have a nice day!**`, { files: [attachment], name: 'welcome.png' });
         } catch (error) {
             return console.error(error);
         };

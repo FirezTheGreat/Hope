@@ -5,23 +5,26 @@ module.exports = class Ping extends Command {
     constructor(...args) {
         super(...args, {
             name: 'ping',
-            aliases: [],
-            category: 'info',
+            category: 'Info',
             description: 'Shows The Ping Of The Bot',
             usage: '',
-            accessableby: 'everyone'
+            accessableby: 'Everyone',
+            slashCommand: true
         });
     };
 
-    async run(message, args) {
+    async interactionRun(interaction) {
         try {
-            const msg = await message.channel.send(`**Pinging...**`);
-            const embed = new MessageEmbed()
+            const message = await interaction.channel.send(`**Pinging...**`);
+            const pingEmbed = new MessageEmbed()
                 .setColor("GREEN")
-                .setDescription(`:hourglass_flowing_sand: ${msg.createdTimestamp - message.createdTimestamp}\n💓 ${Math.round(this.bot.ws.ping)}`)
-            await msg.edit(``, { embed: embed });
+                .setDescription(`:hourglass_flowing_sand: ${message.createdTimestamp - interaction.createdTimestamp}\n💓 ${Math.round(this.bot.ws.ping)}`)
+                .setTimestamp();
+            await message.delete();
+            return await interaction.reply({ embeds: [pingEmbed] });
         } catch (error) {
             console.error(error);
+            return interaction.reply(`An Error Occurred: \`${error.message}\`!`);
         };
     };
 };

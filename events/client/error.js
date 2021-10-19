@@ -5,6 +5,6 @@ module.exports = class Error extends Event {
         super(...args);
     };
     run(error) {
-        console.error(`error.js logged an Error: ${error}`);
+        console.error(`Error Occurred: ${error}`);
     };
 };

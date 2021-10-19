@@ -1,20 +1,29 @@
 const Event = require('../../structures/Event');
 
-module.exports = class extends Event {
-	constructor(...args) {
-		super(...args, {
-			once: true
-		});
-	};
+module.exports = class Ready extends Event {
+    constructor(...args) {
+        super(...args, {
+            once: true
+        });
+    };
 
-	run() {
-		try {
-			this.bot.user.setActivity(`${this.bot.users.cache.size} Members`, { type: 'WATCHING' });
-			console.log(`${this.bot.user.username} is Online!`);
-			this.bot.erela.connect(this.bot);
-			this.bot.music.init(this.bot.user.id);		
-		} catch (error) {
-			console.error(error);
-		};
-	};
+    async run() {
+        try {
+            let slashCommands = this.bot.commands.filter(command => command.slashCommand);
+            let data = [];
+
+            for (const [key, value] of slashCommands) {
+                data.push({ name: key, description: value.description, options: value.commandOptions });
+            };
+
+            await this.bot.guilds.cache.get('724509069112639620').commands.set(data);
+
+            this.bot.erela.connect(this.bot);
+            this.bot.music.init(this.bot.user.id);
+
+            console.log(`${this.bot.user.username} is Online!`);
+        } catch (error) {
+            console.error(error);
+        };
+    };
 };

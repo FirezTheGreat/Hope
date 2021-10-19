@@ -1,10 +1,9 @@
 {
-    "PREFIX": "",
-    "TOKEN": "",
-    "KSOFT_API_TOKEN": "",
+    "PREFIX": "/",
+    "TOKEN": "Njk0MTkxMjE1MDYyNjc5NjA0.XoIB8w.suJEuWZdAGWtCCCWwR4_Ucy-Fkg",
     "ERELA_OPTIONS": {
         "host": "localhost",
         "port": 7000,
-        "password": "password"
+        "password": "hope"
     }
 }

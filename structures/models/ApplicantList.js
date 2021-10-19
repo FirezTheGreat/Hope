@@ -1,22 +1,17 @@
 const { Schema, model } = require('mongoose');
 
-const MyAFKSchema = new Schema({
-    ID: {
+const MyApplicantSchema = new Schema({
+    ApplicantID: {
         type: String,
         required: true,
         index: {
             unique: true
         }
     },
-    name: {
+    SubmitDate: {
         type: String,
         required: true
-    },
-    reason: {
-        type: String,
-        required: false,
-        default: 'afk'
     }
 });
 
-module.exports = model('AFKList', MyAFKSchema, 'AFKList');
+module.exports = model('ApplicantList', MyApplicantSchema, 'ApplicantList');

@@ -1,64 +1,68 @@
+const Command = require("../../structures/Command");
 const { MessageEmbed } = require('discord.js');
-const Command = require('../../structures/Command');
-const { readdirSync } = require('fs');
-const { PREFIX } = require('../../config.json');
+const { readdirSync } = require('fs')
 
-module.exports = class extends Command {
+module.exports = class Help extends Command {
     constructor(...args) {
         super(...args, {
             name: 'help',
-            aliases: ['h'],
-            description: `Displays Every Command Of HOPE Bot`,
-            category: 'info',
-            usage: '[command] (optional)',
-            accessableby: 'everyone'
+            category: 'Info',
+            description: 'Displays A List Of Commands Available',
+            usage: '[name] (optional)',
+            accessableby: 'Everyone',
+            slashCommand: true,
+            commandOptions: [
+                { name: 'command', type: 'STRING', description: 'Command for Details', required: false }
+            ]
         });
     };
-    async run(message, [command]) {
+
+    async interactionRun(interaction) {
         try {
-            const embed = new MessageEmbed()
+            const command = interaction.options.getString('command');
+
+            const helpEmbed = new MessageEmbed()
                 .setColor('GREEN')
-                .setThumbnail(this.bot.user.displayAvatarURL({ dynamic: true }))
+                .setThumbnail(this.bot.user.displayAvatarURL({ dynamic: true }));
 
             if (!command) {
-                embed.setAuthor(`${message.guild.me.displayName} Help`, message.guild.iconURL({ dynamic: true }))
-                const categories = readdirSync("./commands/")
+                helpEmbed.setAuthor(`${interaction.guild.me.displayName} Help`, interaction.guild.iconURL({ dynamic: true }));
+                const categories = readdirSync("./commands/");
 
-                embed.setDescription(`**These Are the Available Commands For ${message.guild.me.displayName}\nBot's Prefix Is \`${PREFIX}\`\n\nFor Help Related To A Particular Command Type -\n\`${PREFIX}help [command name | alias]\`**`)
-                embed.setFooter(`${message.guild.me.displayName} | Total Commands - ${this.bot.commands.size}`, this.bot.user.displayAvatarURL({ dynamic: true }));
+                helpEmbed.setDescription(`**These Are the Available Commands For ${interaction.guild.me.displayName}\nBot's Prefix Is \`${this.bot.prefix}\`\n\nFor Help Related To A Particular Command Type -\n\`${this.bot.prefix}help [command name]\`**`)
+                helpEmbed.setFooter(`${interaction.guild.me.displayName} | Total Commands - ${this.bot.commands.size}`, this.bot.user.displayAvatarURL({ dynamic: true }));
 
                 categories.forEach(category => {
-                    const dir = this.bot.commands.filter(c => c.category === category)
+                    const dir = this.bot.commands.filter(command => command.category.toLowerCase() === category.toLowerCase());
                     const capitalise = category.slice(0, 1).toUpperCase() + category.slice(1)
                     try {
-                        embed.addField(` ${capitalise} [${dir.size}] - `, dir.map(c => `\`${c.name}\``).join(", "))
+                        helpEmbed.addField(` ${capitalise} [${dir.size}] - `, dir.map(c => `\`${c.name}\``).join(", "))
                     } catch (error) {
                         console.error(error);
-                        return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+                        return interaction.reply(`An Error Occurred: \`${error.message}\`!`);
                     };
                 });
-
-                return message.channel.send(embed)
+                return interaction.reply({ embeds: [helpEmbed] });
             } else {
-                embed.setAuthor(`${message.guild.me.displayName} Help`, this.bot.user.displayAvatarURL({ dynamic: true }))
-                let cmd = this.bot.commands.get(command) || this.bot.commands.get(this.bot.aliases.get(command));
-                if (!cmd) return message.channel.send(embed.setTitle("**Invalid Command!**").setDescription(`**Do \`${PREFIX}help\` For the List Of the Commands!**`))
+                helpEmbed.setAuthor(`${interaction.guild.me.displayName} Help`, this.bot.user.displayAvatarURL({ dynamic: true }))
+                let cmd = this.bot.commands.get(command.toLowerCase());
+                if (!cmd) return interaction.reply({ embeds: [helpEmbed.setTitle("**Invalid Command!**").setDescription(`**Do \`${this.bot.prefix}help\` For the List Of the Commands!**`)] })
 
-                embed.setDescription(`**The Bot's Prefix Is \`${PREFIX}\`**\n
-** Command -** ${cmd.name.slice(0, 1).toUpperCase() + cmd.name.slice(1)}\n
+                helpEmbed.setDescription(`**The Bot's Prefix Is \`${this.bot.prefix}\`**\n
+** Name -** ${cmd.name.slice(0, 1).toUpperCase() + cmd.name.slice(1)}\n
 ** Description -** ${cmd.description || "No Description provided."}\n
+** Slash Command -** ${cmd.slashCommand}\n
 ** Category -** ${cmd.category}\n
-** Usage -** ${cmd.usage ? `\`${PREFIX}${cmd.name} ${cmd.usage}\`` :`\`${PREFIX}${cmd.name}\``}\n
-** Accessible by -** ${cmd.accessableby || "everyone"}\n
-** Aliases -** ${cmd.aliases ? cmd.aliases.join(", ") : "None."}`)
-                embed.setFooter(message.guild.name, message.guild.iconURL({ dynamic: true }))
-                embed.setTimestamp();
+** Usage -** ${cmd.usage ? `\`${this.bot.prefix}${cmd.name} ${cmd.usage}\`` : `\`${this.bot.prefix}${cmd.name}\``}\n
+** Accessible by -** ${cmd.accessableby || "everyone"}\n`)
+                helpEmbed.setFooter(interaction.guild.name, interaction.guild.iconURL({ dynamic: true }))
+                helpEmbed.setTimestamp();
 
-                return await message.channel.send({ embed: embed });
+                return interaction.reply({ embeds: [helpEmbed] });
             };
         } catch (error) {
             console.error(error);
-            return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+            return interaction.reply(`An Error Occurred: \`${error.message}\`!`);
         };
     };
 };

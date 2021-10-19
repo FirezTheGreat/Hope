@@ -1,97 +1,92 @@
 const { MessageEmbed } = require('discord.js');
-const { lockedAt } = require('../../functions');
+const { lockedAt } = require('../../structures/functions');
 const Command = require('../../structures/Command');
-const LockedChannels = require('../../structures/models/lockedChannels');
+const LockedChannels = require('../../structures/models/LockedChannelList');
 
 module.exports = class Lock extends Command {
     constructor(...args) {
         super(...args, {
             name: 'lock',
-            aliases: ['lock-channel'],
             category: 'moderation',
             description: 'Locks A Channel In The Server',
             usage: '[channel name] <time> (optional)',
-            accessableby: 'Administrator or Hope Bot Access'
+            accessableby: 'Administrators',
+            slashCommand: true,
+            commandOptions: [
+                { name: 'channel', type: 'CHANNEL', description: 'Channel to Lock', required: true },
+                { name: 'time', type: 'STRING', description: 'Time to Lock', required: true }
+            ]
         });
     };
-    async run(message, args) {
-        let time;
+    async interactionRun(interaction) {
+        let finalTime;
         try {
-            let role = message.guild.roles.cache.find(r => r.name.toLowerCase() === 'hope bot access');
-            if (!role) return message.channel.send('**Role Not Found - Hope Bot Access**!');
-            if (!message.member.roles.cache.has(role.id) && !message.member.permissions.has('ADMINISTRATOR')) return message.channel.send('**You Are Missing Permissions To Execute This Command**!');
+            await interaction.deferReply();
 
-            if (!args[0]) return message.channel.send('**Please Enter A Channel Name or ID**!');
+            const access = interaction.guild.roles.cache.get('859313087030493207');
+            if (!access) return interaction.editReply('**Role Not Found - Access**!');
+            if (!interaction.member.roles.cache.has(access.id) && !interaction.member.permissions.has('MANAGE_GUILD')) return interaction.editReply('**You Are Missing Permissions - [MANAGE_GUILD] To Execute This Command**!');
 
-            let channel = message.mentions.channels.first() || message.guild.channels.cache.get(args[0]) || message.guild.channels.cache.find(r => r.name.toLowerCase() === args[0].toLowerCase());
-            if (!channel) return message.channel.send('**Please Enter A Valid Channel Name or ID**!');
+            const channel = interaction.options.getChannel('channel');
+            if (!channel) return interaction.editReply('**Channel Not Found!**');
 
             let isChannelLocked = await LockedChannels.findOne({ ChannelID: channel.id });
-            if (isChannelLocked) return message.channel.send(`**This Channel Is Already Locked\nLocked At: \`${isChannelLocked.lockedAt}\`**`)
-            if (channel.type !== 'text') return message.channel.send('**I Can Only Lock Text Channels!**');
+            if (isChannelLocked) return interaction.editReply(`**This Channel Is Already Locked\nLocked At: \`${isChannelLocked.lockedAt}\`**`)
+            if (!channel.isText()) return interaction.editReply('**I Can Only Lock Text Channels!**');
 
-            if (!args[1]) return message.channel.send('**Please Give A Timeout!**\nFormat - \`(amount)-sec, (amount)-min, (amount)-hr, (amount)-d\`\nIncorrect Format Will Not Be Accepted!');
-            let timeout = args[1].toLowerCase().endsWith('-sec') && (args[1].length > 4) ? args[1].split('-')[0] : args[1].toLowerCase().endsWith('-min') && (args[1].length > 4) ? args[1].split('-')[0] : args[1].toLowerCase().endsWith('-hr') && (args[1].length > 3) ? args[1].split('-')[0] : args[1].toLowerCase().endsWith('-d') && (args[1].length > 1) ? args[1].split('-')[0] : 'return';
+            const time = interaction.options.getString('time');
+            let timeout = time.toLowerCase().endsWith('-sec') && (time.length > 4) ? time.split('-')[0] : time.toLowerCase().endsWith('-min') && (time.length > 4) ? time.split('-')[0] : time.toLowerCase().endsWith('-hr') && (time.length > 3) ? time.split('-')[0] : time.toLowerCase().endsWith('-d') && (time.length > 1) ? time.split('-')[0] : 'return';
 
-            if (timeout === 'return' || !Number(timeout)) return message.channel.send('**This is The Wrong Format!**');
-            timeout = args[1].split('-')[1].toLowerCase() === 'sec' ? parseInt(timeout) * 1000 : args[1].split('-')[1].toLowerCase() === 'min' ? parseInt(timeout) * 60 * 1000 : args[1].split('-')[1].toLowerCase() === 'hr' ? parseInt(timeout) * 60 * 60 * 1000 : args[1].split('-')[1].toLowerCase() === 'd' ? parseInt(timeout) * 60 * 60 * 24 * 1000 : parseInt(timeout);
+            if (timeout === 'return' || !Number(timeout)) return interaction.editReply('**Please Give A Timeout!\nFormat - \`(amount)-sec, (amount)-min, (amount)-hr, (amount)-d\`\nIncorrect Format Will Not Be Accepted!**');
+            timeout = time.split('-')[1].toLowerCase() === 'sec' ? parseInt(timeout) * 1000 : time.split('-')[1].toLowerCase() === 'min' ? parseInt(timeout) * 60 * 1000 : time.split('-')[1].toLowerCase() === 'hr' ? parseInt(timeout) * 60 * 60 * 1000 : time.split('-')[1].toLowerCase() === 'd' ? parseInt(timeout) * 60 * 60 * 24 * 1000 : parseInt(timeout);
 
             try {
-                await channel.updateOverwrite(message.guild.id, {
-                    SEND_MESSAGES: false,
+                await channel.permissionOverwrites.edit(interaction.guild.id, {
                     ADD_REACTIONS: false,
                 });
+
                 const lockedChannel = await LockedChannels.create({
                     ChannelID: channel.id,
                     timeoutInMS: timeout,
                     lockedAt: lockedAt(),
-                    user: message.author.id,
+                    user: interaction.user.id,
                     channel: channel.name
                 });
                 await lockedChannel.save();
 
-                time = setTimeout(async function () {
-                    await channel.updateOverwrite(message.guild.id, {
-                        SEND_MESSAGES: null,
-                        ADD_REACTIONS: null,
-                        READ_MESSAGES: null
+                finalTime = setTimeout(async () => {
+                    await channel.permissionOverwrites.edit(interaction.guild.id, {
+                        SEND_MESSAGES: true,
+                        VIEW_CHANNEL: true
                     });
                     const embed = new MessageEmbed()
                         .setColor('GREEN')
-                        .setAuthor(message.author.username, message.author.displayAvatarURL({ dynamic: true }))
-                        .setTitle(message.guild.name, message.guild.iconURL())
+                        .setAuthor(interaction.user.username, interaction.user.displayAvatarURL({ dynamic: true }))
+                        .setTitle(interaction.guild.name, interaction.guild.iconURL())
                         .setDescription(`Successfully Unlocked Channel ${channel.name}!`)
                         .setTimestamp();
-                    await message.channel.send({ embed: embed });
-                    await LockedChannels.deleteOne({
-                        ChannelID: channel.id
-                    });
-                    return;
+                    await interaction.channel.send({ embeds: [embed] });
+                    return await LockedChannels.deleteOne({ ChannelID: channel.id });
                 }, timeout);
             } catch (error) {
-                clearTimeout(time);
-                await LockedChannels.deleteOne({
-                    ChannelID: channel.id
-                });
+                clearTimeout(finalTime);
+                await LockedChannels.deleteOne({ ChannelID: channel.id });
                 console.error(error);
-                return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+                return interaction.editReply(`An Error Occurred: \`${error.message}\`!`);
             };
 
             const embed = new MessageEmbed()
                 .setColor('GREEN')
-                .setAuthor(message.author.username, message.author.displayAvatarURL({ dynamic: true }))
-                .setTitle(message.guild.name, message.guild.iconURL())
+                .setAuthor(interaction.user.username, interaction.user.displayAvatarURL({ dynamic: true }))
+                .setTitle(interaction.guild.name, interaction.guild.iconURL())
                 .setDescription(`Successfully Locked Channel ${channel.name}`)
                 .setTimestamp();
-            await message.channel.send({ embed: embed });
-
+            await interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error(error);
-            clearTimeout(time);
-            await LockedChannels.deleteOne({
-                ChannelID: channel.id
-            });
-            return message.channel.send(`An Error Occurred: \`${error.message}\`!`);
+            clearTimeout(finalTime);
+            await LockedChannels.deleteOne({ ChannelID: channel.id });
+            return interaction.editReply(`An Error Occurred: \`${error.message}\`!`);
         };
     };
 };
