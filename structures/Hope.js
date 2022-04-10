@@ -23,7 +23,6 @@ module.exports = class Hope extends Client {
         this.events = new Collection();
         this.games = new Collection();
         this.utils = new Util(this);
-        this.erela = require('../structures/music/erela');
         this.mongoose = require('../structures/mongoose');
         this.owners = options.owners;
     };
